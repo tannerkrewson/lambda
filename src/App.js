@@ -1,10 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Heading, Button, Input, Textarea, Label } from "theme-ui";
+import useLocalStorage from "use-local-storage";
+
 import "./App.css";
 import { LambdaCenterBox, lambdaInputMap } from "./components";
 
+const useSettings = () => {
+    const [SID, setSID] = useLocalStorage("SID", "");
+    const [savedSettings, saveSettings] = useLocalStorage("settings", "[]");
+
+    const [settings, setSettings] = useState(savedSettings);
+
+    return {
+        SID,
+        setSID,
+        settings,
+        setSettings: (e) => setSettings(e.target.value),
+        save: () => {
+            if (!settings.startsWith("["))
+                // eslint-disable-next-line no-throw-literal
+                throw "Settings must be an array";
+
+            saveSettings(settings);
+        },
+        getInputList: () => {
+            return Array.isArray(settings) ? settings : JSON.parse(settings);
+        },
+    };
+};
+
 function App() {
     const [showSettings, setShowSettings] = useState(false);
+    const allSettings = useSettings();
+
     return (
         <div className="App">
             <Heading
@@ -18,50 +46,24 @@ function App() {
                 λ
             </Heading>
             {showSettings ? (
-                <Settings setShowSettings={setShowSettings} />
+                <Settings
+                    setShowSettings={setShowSettings}
+                    allSettings={allSettings}
+                />
             ) : (
-                <MainForm setShowSettings={setShowSettings} />
+                <MainForm
+                    setShowSettings={setShowSettings}
+                    allSettings={allSettings}
+                />
             )}
         </div>
     );
 }
 
-const MainForm = ({ setShowSettings }) => {
-    const inputList = [
-        {
-            label: "Make",
-            type: "input",
-        },
-        {
-            label: "Model",
-            type: "input",
-        },
-        {
-            label: "Rare?",
-            type: "switch",
-        },
-        {
-            label: "Type",
-            type: "select",
-            options: [
-                "Sedan",
-                "Coupe",
-                "Sports Car",
-                "Station Wagon",
-                "Hatchback",
-                "Convertible",
-                "SUV",
-                "Minivan",
-                "Truck",
-            ],
-        },
-        {
-            label: "Notes",
-            type: "textarea",
-        },
-    ];
+const MainForm = ({ setShowSettings, allSettings }) => {
+    const { getInputList } = allSettings;
 
-    const inputComponents = inputList.map(({ label, type, options }) => {
+    const inputComponents = getInputList().map(({ label, type, options }) => {
         const LambdaInputComponent = lambdaInputMap[type];
         return (
             <LambdaInputComponent key={label} label={label} options={options} />
@@ -125,12 +127,16 @@ const MainForm = ({ setShowSettings }) => {
     );
 };
 
-const Settings = ({ setShowSettings }) => {
+const Settings = ({ setShowSettings, allSettings }) => {
+    const { SID, setSID, settings, setSettings, save } = allSettings;
     return (
         <div className="Form">
             <Label>Spreadsheet</Label>
-            <Input name="input" /> <Label>Input List</Label>
+            <Input value={SID} onChange={setSID} />
+            <Label>Input List</Label>
             <Textarea
+                value={settings}
+                onChange={setSettings}
                 autoComplete="off"
                 name="textarea"
                 onKeyPress={(e) => {
@@ -140,7 +146,14 @@ const Settings = ({ setShowSettings }) => {
             <LambdaCenterBox>
                 <Button
                     variant="primary"
-                    onClick={() => setShowSettings(false)}
+                    onClick={() => {
+                        try {
+                            save();
+                            setShowSettings(false);
+                        } catch (error) {
+                            alert(error);
+                        }
+                    }}
                 >
                     Save
                 </Button>
