@@ -52,6 +52,7 @@ function App() {
     const [tokenClient, setTokenClient] = useState();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const allSettings = useSettings();
 
@@ -123,6 +124,8 @@ function App() {
                             setShowSettings={setShowSettings}
                             allSettings={allSettings}
                             setIsLoading={setIsLoading}
+                            isSuccess={isSuccess}
+                            setIsSuccess={setIsSuccess}
                         />
                     )}
                 </>
@@ -131,7 +134,13 @@ function App() {
     );
 }
 
-const MainForm = ({ setShowSettings, allSettings, setIsLoading }) => {
+const MainForm = ({
+    setShowSettings,
+    allSettings,
+    setIsLoading,
+    isSuccess,
+    setIsSuccess,
+}) => {
     const { getInputList } = allSettings;
 
     const inputComponents = getInputList().map(({ label, type, options }) => {
@@ -142,59 +151,63 @@ const MainForm = ({ setShowSettings, allSettings, setIsLoading }) => {
     });
 
     return (
-        <form
-            className="Form"
-            autoComplete="off"
-            onSubmit={(event) => {
-                event.preventDefault();
+        <>
+            {isSuccess && <div>Success</div>}
+            <form
+                className="Form"
+                autoComplete="off"
+                onSubmit={(event) => {
+                    event.preventDefault();
 
-                setIsLoading(true);
+                    setIsLoading(true);
 
-                const inputs = [...event.target.elements];
+                    const inputs = [...event.target.elements];
 
-                // remove the submit and settings buttons
-                inputs.pop();
-                inputs.pop();
+                    // remove the submit and settings buttons
+                    inputs.pop();
+                    inputs.pop();
 
-                let allInputsFilled = true;
-                const formItems = inputs.map(({ value, type, checked }) => {
-                    if (type === "checkbox") return checked ? "yes" : "no";
-                    if (
-                        (type === "text" ||
-                            type === "textarea" ||
-                            type === "select-one") &&
-                        value === ""
-                    )
-                        allInputsFilled = false;
-                    return value;
-                });
-
-                if (allInputsFilled) {
-                    onSubmit(formItems, allSettings, () => {
-                        window.location.reload();
+                    let allInputsFilled = true;
+                    const formItems = inputs.map(({ value, type, checked }) => {
+                        if (type === "checkbox") return checked ? "yes" : "no";
+                        if (
+                            (type === "text" ||
+                                type === "textarea" ||
+                                type === "select-one") &&
+                            value === ""
+                        )
+                            allInputsFilled = false;
+                        return value;
                     });
-                } else {
-                    setIsLoading(false);
-                    alert("Please fill in all inputs.");
-                }
-            }}
-        >
-            {inputComponents}
 
-            <LambdaCenterBox>
-                <Button
-                    variant="secondary"
-                    mr={5}
-                    onClick={(e) => {
-                        e.preventDefault();
-                        setShowSettings(true);
-                    }}
-                >
-                    🛠
-                </Button>
-                <Button variant="primary">Submit</Button>
-            </LambdaCenterBox>
-        </form>
+                    if (allInputsFilled) {
+                        onSubmit(formItems, allSettings, () => {
+                            setIsSuccess(true);
+                            setIsLoading(false);
+                        });
+                    } else {
+                        setIsLoading(false);
+                        alert("Please fill in all inputs.");
+                    }
+                }}
+            >
+                {inputComponents}
+
+                <LambdaCenterBox>
+                    <Button
+                        variant="secondary"
+                        mr={5}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setShowSettings(true);
+                        }}
+                    >
+                        🛠
+                    </Button>
+                    <Button variant="primary">Submit</Button>
+                </LambdaCenterBox>
+            </form>
+        </>
     );
 };
 

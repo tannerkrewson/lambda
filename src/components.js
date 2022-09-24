@@ -39,7 +39,7 @@ const LambdaSelect = ({ label, options }) => (
     <>
         <Label>{label}</Label>
         <Select name="select">
-            <option disabled selected></option>
+            <option defaultValue></option>
             {options.map((option) => (
                 <option key={option}>{option}</option>
             ))}
