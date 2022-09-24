@@ -1,4 +1,4 @@
-import { Input, Select, Textarea, Switch, Label } from "theme-ui";
+import { Input, Select, Textarea, Switch, Label, Flex, Box } from "theme-ui";
 
 const LambdaCenterBox = ({ children }) => (
     <div
@@ -19,17 +19,20 @@ const LambdaInput = ({ label }) => (
 );
 
 const LambdaSwitch = ({ label }) => (
-    <div
-        style={{
-            display: "flex",
-            flexDirection: "column",
+    <Flex
+        sx={{
+            justifyContent: "space-between",
             alignItems: "center",
+            py: 4,
+            paddingTop: 0,
+            paddingBottom: 0,
         }}
     >
-        <div>
-            <Switch label={label} />
-        </div>
-    </div>
+        <Label>{label}</Label>
+        <Box>
+            <Switch />
+        </Box>
+    </Flex>
 );
 
 const LambdaSelect = ({ label, options }) => (
