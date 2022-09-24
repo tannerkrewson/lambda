@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Heading, Button, Input, Textarea } from "theme-ui";
+import { Heading, Button, Input, Textarea, Label } from "theme-ui";
 import "./App.css";
 import { LambdaCenterBox, lambdaInputMap } from "./components";
 
@@ -113,7 +113,10 @@ const MainForm = ({ setShowSettings }) => {
                 <Button
                     variant="secondary"
                     mr={5}
-                    onClick={() => setShowSettings(true)}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        setShowSettings(true);
+                    }}
                 >
                     🛠
                 </Button>
@@ -126,7 +129,8 @@ const MainForm = ({ setShowSettings }) => {
 const Settings = ({ setShowSettings }) => {
     return (
         <div className="Form">
-            <Input name="input" />
+            <Label>Spreadsheet</Label>
+            <Input name="input" /> <Label>Input List</Label>
             <Textarea
                 autoComplete="off"
                 name="textarea"
