@@ -10,11 +10,11 @@
 }
 
 .Form > *:not(:last-child):not(label) {
-    margin-bottom: 1.5em;
+    margin-bottom: 1.25em;
 }
 
 .Form > label {
-    margin-bottom: 0.5em;
+    margin-bottom: 0.25em;
 }
 
 select,

@@ -20,13 +20,14 @@ const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 
 const useSettings = () => {
     const [SID, setSID] = useLocalStorage("SID", "");
+    const [OWAID, setOWAID] = useLocalStorage("OWAID", "");
     const [savedSettings, saveSettings] = useLocalStorage("settings", "[]");
 
     const [settings, setSettings] = useState(savedSettings);
 
     return {
         SID,
-        setSID,
+        setSID: (e) => setSID(e.target.value),
         settings,
         setSettings: (e) => setSettings(e.target.value),
         save: () => {
@@ -39,6 +40,8 @@ const useSettings = () => {
         getInputList: () => {
             return Array.isArray(settings) ? settings : JSON.parse(settings);
         },
+        OWAID,
+        setOWAID: (e) => setOWAID(e.target.value),
     };
 };
 
@@ -48,6 +51,7 @@ function App() {
     const [gisInited, setGisInited] = useState(false);
     const [tokenClient, setTokenClient] = useState();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     const allSettings = useSettings();
 
@@ -72,8 +76,7 @@ function App() {
                     }
 
                     setIsLoggedIn(true);
-
-                    //await printDocTitle();
+                    setIsLoading(false);
                 },
             })
         );
@@ -106,7 +109,7 @@ function App() {
             >
                 λ
             </Heading>
-            {!isLoggedIn ? (
+            {!isLoggedIn || isLoading ? (
                 <Spinner />
             ) : (
                 <>
@@ -119,6 +122,7 @@ function App() {
                         <MainForm
                             setShowSettings={setShowSettings}
                             allSettings={allSettings}
+                            setIsLoading={setIsLoading}
                         />
                     )}
                 </>
@@ -127,7 +131,7 @@ function App() {
     );
 }
 
-const MainForm = ({ setShowSettings, allSettings }) => {
+const MainForm = ({ setShowSettings, allSettings, setIsLoading }) => {
     const { getInputList } = allSettings;
 
     const inputComponents = getInputList().map(({ label, type, options }) => {
@@ -144,7 +148,7 @@ const MainForm = ({ setShowSettings, allSettings }) => {
             onSubmit={(event) => {
                 event.preventDefault();
 
-                //setIsLoading(true);
+                setIsLoading(true);
 
                 const inputs = [...event.target.elements];
 
@@ -166,11 +170,11 @@ const MainForm = ({ setShowSettings, allSettings }) => {
                 });
 
                 if (allInputsFilled) {
-                    onSubmit(formItems, () => {
-                        //window.location.reload();
+                    onSubmit(formItems, allSettings, () => {
+                        window.location.reload();
                     });
                 } else {
-                    //setIsLoading(false);
+                    setIsLoading(false);
                     alert("Please fill in all inputs.");
                 }
             }}
@@ -195,11 +199,14 @@ const MainForm = ({ setShowSettings, allSettings }) => {
 };
 
 const Settings = ({ setShowSettings, allSettings }) => {
-    const { SID, setSID, settings, setSettings, save } = allSettings;
+    const { SID, setSID, settings, setSettings, save, OWAID, setOWAID } =
+        allSettings;
     return (
         <div className="Form">
             <Label>Spreadsheet</Label>
             <Input value={SID} onChange={setSID} />
+            <Label>OpenWeather App ID</Label>
+            <Input value={OWAID} onChange={setOWAID} />
             <Label>Input List</Label>
             <Textarea
                 value={settings}
@@ -229,56 +236,57 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (formItems, done) => {
-    console.log(formItems);
+const onSubmit = (formItems, allSettings, done) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
         appendRow(
             [
                 ...getDateList(),
-                ...(await getWeather(coords.latitude, coords.longitude)),
+                ...(await getWeather(
+                    coords.latitude,
+                    coords.longitude,
+                    allSettings.OWAID
+                )),
                 coords.latitude,
                 coords.longitude,
                 `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
                 ...formItems,
             ],
+            allSettings,
             done
         );
     });
 };
 
-function appendRow(newRow, done) {
-    done();
-    // const spreadsheetId = "?";
-    // window.gapi.client.sheets.spreadsheets.values
-    //     .append({
-    //         spreadsheetId,
-    //         range: "Raw",
-    //         valueInputOption: "USER_ENTERED",
-    //         resource: {
-    //             majorDimension: "ROWS",
-    //             values: [newRow],
-    //         },
-    //     })
-    //     .then((e) => {
-    //         if (e.status !== 200) {
-    //             alert(e.statusText);
-    //         }
-    //         done();
-    //     });
-}
+const appendRow = (newRow, allSettings, done) => {
+    window.gapi.client.sheets.spreadsheets.values
+        .append({
+            spreadsheetId: allSettings.SID,
+            range: "Raw",
+            valueInputOption: "USER_ENTERED",
+            resource: {
+                majorDimension: "ROWS",
+                values: [newRow],
+            },
+        })
+        .then((e) => {
+            if (e.status !== 200) {
+                alert(e.statusText);
+            }
+            done();
+        });
+};
 
-const getWeather = async (lat, lon) => {
-    const openWeatherAppId = "";
-
+const getWeather = async (lat, lon, OWAID) => {
     try {
         const weather = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${openWeatherAppId}&units=imperial`
+            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWAID}&units=imperial`
         ).then((res) => res.json());
         return [
             `${Math.round(weather.main.feels_like)}° F`,
             getDarkOrLight(weather.sys),
         ];
     } catch (error) {
+        alert(error);
         return ["?", "?"];
     }
 };
