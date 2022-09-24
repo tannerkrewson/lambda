@@ -1,9 +1,22 @@
-import { useEffect, useState } from "react";
-import { Heading, Button, Input, Textarea, Label } from "theme-ui";
+import { useEffect, useCallback, useState } from "react";
+import { Heading, Button, Input, Textarea, Label, Spinner } from "theme-ui";
 import useLocalStorage from "use-local-storage";
 
 import "./App.css";
 import { LambdaCenterBox, lambdaInputMap } from "./components";
+
+// Client ID and API key from the Developer Console
+const CLIENT_ID =
+    "456390951586-96qcaqi78249qdb4m89hac6ulu11ogbq.apps.googleusercontent.com";
+const API_KEY = "AIzaSyD8jd0tPMYX6sR3-oLbnFXlKpA8tbQB96s";
+
+// Array of API discovery doc URLs for APIs used by the quickstart
+const DISCOVERY_DOC =
+    "https://sheets.googleapis.com/$discovery/rest?version=v4";
+
+// Authorization scopes required by the API; multiple scopes can be
+// included, separated by spaces.
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 
 const useSettings = () => {
     const [SID, setSID] = useLocalStorage("SID", "");
@@ -31,7 +44,55 @@ const useSettings = () => {
 
 function App() {
     const [showSettings, setShowSettings] = useState(false);
+    const [gapiInited, setGapiInited] = useState(false);
+    const [gisInited, setGisInited] = useState(false);
+    const [tokenClient, setTokenClient] = useState();
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
     const allSettings = useSettings();
+
+    const gapiOnLoad = useCallback(() => {
+        window.gapi.load("client", async () => {
+            await window.gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            setGapiInited(true);
+        });
+    }, []);
+
+    const gisOnLoad = useCallback(() => {
+        setTokenClient(
+            window.google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: async (resp) => {
+                    if (resp.error !== undefined) {
+                        throw resp;
+                    }
+
+                    setIsLoggedIn(true);
+
+                    //await printDocTitle();
+                },
+            })
+        );
+        setGisInited(true);
+    }, []);
+
+    useEffect(() => {
+        if (window.gapiLoaded) gapiOnLoad();
+        if (window.gisLoaded) gisOnLoad();
+
+        document.getElementById("gapi").addEventListener("load", gapiOnLoad);
+        document.getElementById("gis").addEventListener("load", gisOnLoad);
+    }, [gapiOnLoad, gisOnLoad]);
+
+    useEffect(() => {
+        if (gapiInited && gisInited) {
+            tokenClient.requestAccessToken({ prompt: "" });
+        }
+    }, [gapiInited, gisInited, tokenClient]);
 
     return (
         <div className="App">
@@ -45,16 +106,22 @@ function App() {
             >
                 λ
             </Heading>
-            {showSettings ? (
-                <Settings
-                    setShowSettings={setShowSettings}
-                    allSettings={allSettings}
-                />
+            {!isLoggedIn ? (
+                <Spinner />
             ) : (
-                <MainForm
-                    setShowSettings={setShowSettings}
-                    allSettings={allSettings}
-                />
+                <>
+                    {showSettings ? (
+                        <Settings
+                            setShowSettings={setShowSettings}
+                            allSettings={allSettings}
+                        />
+                    ) : (
+                        <MainForm
+                            setShowSettings={setShowSettings}
+                            allSettings={allSettings}
+                        />
+                    )}
+                </>
             )}
         </div>
     );
