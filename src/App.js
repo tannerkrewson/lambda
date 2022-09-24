@@ -79,13 +79,12 @@ const MainForm = ({ setShowSettings }) => {
 
                 const inputs = [...event.target.elements];
 
-                // remove the submit button
+                // remove the submit and settings buttons
+                inputs.pop();
                 inputs.pop();
 
-                console.log(inputs);
-
                 let allInputsFilled = true;
-                inputs.map(({ value, type, checked }) => {
+                const formItems = inputs.map(({ value, type, checked }) => {
                     if (type === "checkbox") return checked ? "yes" : "no";
                     if (
                         (type === "text" ||
@@ -98,7 +97,7 @@ const MainForm = ({ setShowSettings }) => {
                 });
 
                 if (allInputsFilled) {
-                    onSubmit(inputs, () => {
+                    onSubmit(formItems, () => {
                         //window.location.reload();
                     });
                 } else {
@@ -151,6 +150,7 @@ const Settings = ({ setShowSettings }) => {
 };
 
 const onSubmit = (formItems, done) => {
+    console.log(formItems);
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
         appendRow(
             [
