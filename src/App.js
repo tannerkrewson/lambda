@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Heading, Button, Input, Select, Textarea, Switch } from "theme-ui";
+import { Heading, Button, Input, Textarea } from "theme-ui";
 import "./App.css";
+import { LambdaCenterBox, lambdaInputMap } from "./components";
 
 function App() {
+    const [showSettings, setShowSettings] = useState(false);
     return (
         <div className="App">
             <Heading
@@ -15,13 +17,56 @@ function App() {
             >
                 λ
             </Heading>
-            <MainForm />
+            {showSettings ? (
+                <Settings setShowSettings={setShowSettings} />
+            ) : (
+                <MainForm setShowSettings={setShowSettings} />
+            )}
         </div>
     );
 }
 
-const MainForm = () => {
-    const [isLoading, setIsLoading] = useState(false);
+const MainForm = ({ setShowSettings }) => {
+    const inputList = [
+        {
+            label: "Make",
+            type: "input",
+        },
+        {
+            label: "Model",
+            type: "input",
+        },
+        {
+            label: "Rare?",
+            type: "switch",
+        },
+        {
+            label: "Type",
+            type: "select",
+            options: [
+                "Sedan",
+                "Coupe",
+                "Sports Car",
+                "Station Wagon",
+                "Hatchback",
+                "Convertible",
+                "SUV",
+                "Minivan",
+                "Truck",
+            ],
+        },
+        {
+            label: "Notes",
+            type: "textarea",
+        },
+    ];
+
+    const inputComponents = inputList.map(({ label, type, options }) => {
+        const LambdaInputComponent = lambdaInputMap[type];
+        return (
+            <LambdaInputComponent key={label} label={label} options={options} />
+        );
+    });
 
     return (
         <form
@@ -30,7 +75,7 @@ const MainForm = () => {
             onSubmit={(event) => {
                 event.preventDefault();
 
-                setIsLoading(true);
+                //setIsLoading(true);
 
                 const inputs = [...event.target.elements];
 
@@ -57,47 +102,47 @@ const MainForm = () => {
                         //window.location.reload();
                     });
                 } else {
-                    setIsLoading(false);
+                    //setIsLoading(false);
                     alert("Please fill in all inputs.");
                 }
             }}
         >
-            <div
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    rowGap: "10px",
-                }}
-            >
-                <div>
-                    <Switch name="switch" label="Switch" />
-                </div>
-            </div>
-            <Select name="select">
-                <option disabled selected></option>
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-            </Select>
+            {inputComponents}
+
+            <LambdaCenterBox>
+                <Button
+                    variant="secondary"
+                    mr={5}
+                    onClick={() => setShowSettings(true)}
+                >
+                    🛠
+                </Button>
+                <Button variant="primary">Submit</Button>
+            </LambdaCenterBox>
+        </form>
+    );
+};
+
+const Settings = ({ setShowSettings }) => {
+    return (
+        <div className="Form">
             <Input name="input" />
             <Textarea
-                autocomplete="off"
+                autoComplete="off"
                 name="textarea"
                 onKeyPress={(e) => {
                     e.key === "Enter" && e.preventDefault();
                 }}
             />
-
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "center",
-                }}
-            >
-                <Button variant="primary">Submit</Button>
-            </div>
-        </form>
+            <LambdaCenterBox>
+                <Button
+                    variant="primary"
+                    onClick={() => setShowSettings(false)}
+                >
+                    Save
+                </Button>
+            </LambdaCenterBox>
+        </div>
     );
 };
 

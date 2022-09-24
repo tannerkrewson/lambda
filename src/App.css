@@ -9,8 +9,12 @@
     min-width: 18em;
 }
 
-.Form > *:not(:last-child) {
+.Form > *:not(:last-child):not(label) {
     margin-bottom: 1.5em;
+}
+
+.Form > label {
+    margin-bottom: 0.5em;
 }
 
 select,
