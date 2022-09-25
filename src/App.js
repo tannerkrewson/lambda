@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { Heading, Button, Input, Textarea, Label, Spinner } from "theme-ui";
 import useLocalStorage from "use-local-storage";
 
@@ -126,26 +126,22 @@ function App() {
             >
                 λ
             </Heading>
-            {isLoading ? (
-                <Spinner />
+            {isLoading && <Spinner />}
+            {showSettings ? (
+                <Settings
+                    setShowSettings={setShowSettings}
+                    allSettings={allSettings}
+                />
             ) : (
-                <>
-                    {showSettings ? (
-                        <Settings
-                            setShowSettings={setShowSettings}
-                            allSettings={allSettings}
-                        />
-                    ) : (
-                        <MainForm
-                            setShowSettings={setShowSettings}
-                            allSettings={allSettings}
-                            setIsLoading={setIsLoading}
-                            isSuccess={isSuccess}
-                            setIsSuccess={setIsSuccess}
-                            login={login}
-                        />
-                    )}
-                </>
+                <MainForm
+                    setShowSettings={setShowSettings}
+                    allSettings={allSettings}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                    isSuccess={isSuccess}
+                    setIsSuccess={setIsSuccess}
+                    login={login}
+                />
             )}
         </div>
     );
@@ -154,12 +150,15 @@ function App() {
 const MainForm = ({
     setShowSettings,
     allSettings,
+    isLoading,
     setIsLoading,
     isSuccess,
     setIsSuccess,
     login,
 }) => {
     const { getInputList } = allSettings;
+
+    const formRef = useRef(null);
 
     const inputComponents = getInputList().map(({ label, type, options }) => {
         const LambdaInputComponent = lambdaInputMap[type];
@@ -174,6 +173,8 @@ const MainForm = ({
             <form
                 className="Form"
                 autoComplete="off"
+                ref={formRef}
+                style={{ display: isLoading ? "none" : "block" }}
                 onSubmit={(event) => {
                     event.preventDefault();
 
@@ -198,22 +199,30 @@ const MainForm = ({
                         return value;
                     });
 
+                    const onError = (error) => {
+                        setIsLoading(false);
+                        alert(error);
+                    };
+
                     if (allInputsFilled) {
                         try {
                             login(() => {
-                                onSubmit(formItems, allSettings, () => {
-                                    setIsSuccess(true);
-                                    setIsLoading(false);
-                                });
+                                onSubmit(
+                                    formItems,
+                                    allSettings,
+                                    () => {
+                                        formRef.current.reset();
+                                        setIsSuccess(true);
+                                        setIsLoading(false);
+                                    },
+                                    onError
+                                );
                             });
                         } catch (error) {
-                            setIsLoading(false);
-                            alert(error);
-                            return;
+                            onError(error);
                         }
                     } else {
-                        setIsLoading(false);
-                        alert("Please fill in all inputs.");
+                        onError("Please fill in all inputs.");
                     }
                 }}
             >
@@ -275,7 +284,7 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (formItems, allSettings, done) => {
+const onSubmit = (formItems, allSettings, done, onError) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
         appendRow(
             [
@@ -291,12 +300,13 @@ const onSubmit = (formItems, allSettings, done) => {
                 ...formItems,
             ],
             allSettings,
-            done
+            done,
+            onError
         );
     });
 };
 
-const appendRow = (newRow, allSettings, done) => {
+const appendRow = (newRow, allSettings, done, onError) => {
     window.gapi.client.sheets.spreadsheets.values
         .append({
             spreadsheetId: allSettings.SID,
@@ -312,8 +322,11 @@ const appendRow = (newRow, allSettings, done) => {
                 done();
             },
             (reason) => {
-                // eslint-disable-next-line no-throw-literal
-                alert("error: " + reason.result.error.message);
+                try {
+                    onError("error: " + reason.result.error.message);
+                } catch (error) {
+                    onError(error);
+                }
             }
         );
 };
@@ -328,7 +341,7 @@ const getWeather = async (lat, lon, OWAID) => {
             getDarkOrLight(weather.sys),
         ];
     } catch (error) {
-        alert(error);
+        alert("didn't record temp and daylight:" + error);
         return ["?", "?"];
     }
 };
