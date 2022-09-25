@@ -50,7 +50,6 @@ function App() {
     const [gapiInited, setGapiInited] = useState(false);
     const [gisInited, setGisInited] = useState(false);
     const [tokenClient, setTokenClient] = useState();
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSuccess, setIsSuccess] = useState(false);
 
@@ -71,18 +70,31 @@ function App() {
             window.google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: async (resp) => {
-                    if (resp.error !== undefined) {
-                        throw resp;
-                    }
-
-                    setIsLoggedIn(true);
-                    setIsLoading(false);
-                },
+                callback: null, //set later
             })
         );
         setGisInited(true);
+        setIsLoading(false);
     }, []);
+
+    const login = useCallback(
+        (done) => {
+            if (gapiInited && gisInited) {
+                tokenClient.callback = (resp) => {
+                    if (resp.error !== undefined) {
+                        throw resp;
+                    } else {
+                        done();
+                    }
+                };
+                tokenClient.requestAccessToken({ prompt: "" });
+            } else {
+                // eslint-disable-next-line no-throw-literal
+                throw `gapi ready? ${gapiInited}. gis ready? ${gisInited}`;
+            }
+        },
+        [gapiInited, gisInited, tokenClient]
+    );
 
     useEffect(() => {
         if (window.gapiLoaded) gapiOnLoad();
@@ -92,11 +104,15 @@ function App() {
         document.getElementById("gis").addEventListener("load", gisOnLoad);
     }, [gapiOnLoad, gisOnLoad]);
 
-    useEffect(() => {
-        if (gapiInited && gisInited) {
-            tokenClient.requestAccessToken({ prompt: "" });
-        }
-    }, [gapiInited, gisInited, tokenClient]);
+    // login on page load. commenting out because it still shows the prompt on submit.
+    // useEffect(() => {
+    //     if (gapiInited && gisInited && tokenClient) {
+    //         setIsLoading(true);
+    //         login(() => {
+    //             setIsLoading(false);
+    //         });
+    //     }
+    // }, [gapiInited, gisInited, login, tokenClient]);
 
     return (
         <div className="App">
@@ -110,7 +126,7 @@ function App() {
             >
                 λ
             </Heading>
-            {!isLoggedIn || isLoading ? (
+            {isLoading ? (
                 <Spinner />
             ) : (
                 <>
@@ -126,6 +142,7 @@ function App() {
                             setIsLoading={setIsLoading}
                             isSuccess={isSuccess}
                             setIsSuccess={setIsSuccess}
+                            login={login}
                         />
                     )}
                 </>
@@ -140,6 +157,7 @@ const MainForm = ({
     setIsLoading,
     isSuccess,
     setIsSuccess,
+    login,
 }) => {
     const { getInputList } = allSettings;
 
@@ -161,33 +179,43 @@ const MainForm = ({
 
                     setIsLoading(true);
 
-                    const inputs = [...event.target.elements];
+                    try {
+                        login(() => {
+                            const inputs = [...event.target.elements];
 
-                    // remove the submit and settings buttons
-                    inputs.pop();
-                    inputs.pop();
+                            // remove the submit and settings buttons
+                            inputs.pop();
+                            inputs.pop();
 
-                    let allInputsFilled = true;
-                    const formItems = inputs.map(({ value, type, checked }) => {
-                        if (type === "checkbox") return checked ? "yes" : "no";
-                        if (
-                            (type === "text" ||
-                                type === "textarea" ||
-                                type === "select-one") &&
-                            value === ""
-                        )
-                            allInputsFilled = false;
-                        return value;
-                    });
+                            let allInputsFilled = true;
+                            const formItems = inputs.map(
+                                ({ value, type, checked }) => {
+                                    if (type === "checkbox")
+                                        return checked ? "yes" : "no";
+                                    if (
+                                        (type === "text" ||
+                                            type === "textarea" ||
+                                            type === "select-one") &&
+                                        value === ""
+                                    )
+                                        allInputsFilled = false;
+                                    return value;
+                                }
+                            );
 
-                    if (allInputsFilled) {
-                        onSubmit(formItems, allSettings, () => {
-                            setIsSuccess(true);
-                            setIsLoading(false);
+                            if (allInputsFilled) {
+                                onSubmit(formItems, allSettings, () => {
+                                    setIsSuccess(true);
+                                    setIsLoading(false);
+                                });
+                            } else {
+                                setIsLoading(false);
+                                alert("Please fill in all inputs.");
+                            }
                         });
-                    } else {
-                        setIsLoading(false);
-                        alert("Please fill in all inputs.");
+                    } catch (error) {
+                        alert(error);
+                        return;
                     }
                 }}
             >
@@ -281,12 +309,15 @@ const appendRow = (newRow, allSettings, done) => {
                 values: [newRow],
             },
         })
-        .then((e) => {
-            if (e.status !== 200) {
-                alert(e.statusText);
+        .then(
+            () => {
+                done();
+            },
+            (reason) => {
+                // eslint-disable-next-line no-throw-literal
+                alert("error: " + reason.result.error.message);
             }
-            done();
-        });
+        );
 };
 
 const getWeather = async (lat, lon, OWAID) => {
