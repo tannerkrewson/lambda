@@ -179,43 +179,41 @@ const MainForm = ({
 
                     setIsLoading(true);
 
-                    try {
-                        login(() => {
-                            const inputs = [...event.target.elements];
+                    const inputs = [...event.target.elements];
 
-                            // remove the submit and settings buttons
-                            inputs.pop();
-                            inputs.pop();
+                    // remove the submit and settings buttons
+                    inputs.pop();
+                    inputs.pop();
 
-                            let allInputsFilled = true;
-                            const formItems = inputs.map(
-                                ({ value, type, checked }) => {
-                                    if (type === "checkbox")
-                                        return checked ? "yes" : "no";
-                                    if (
-                                        (type === "text" ||
-                                            type === "textarea" ||
-                                            type === "select-one") &&
-                                        value === ""
-                                    )
-                                        allInputsFilled = false;
-                                    return value;
-                                }
-                            );
+                    let allInputsFilled = true;
+                    const formItems = inputs.map(({ value, type, checked }) => {
+                        if (type === "checkbox") return checked ? "yes" : "no";
+                        if (
+                            (type === "text" ||
+                                type === "textarea" ||
+                                type === "select-one") &&
+                            value === ""
+                        )
+                            allInputsFilled = false;
+                        return value;
+                    });
 
-                            if (allInputsFilled) {
+                    if (allInputsFilled) {
+                        try {
+                            login(() => {
                                 onSubmit(formItems, allSettings, () => {
                                     setIsSuccess(true);
                                     setIsLoading(false);
                                 });
-                            } else {
-                                setIsLoading(false);
-                                alert("Please fill in all inputs.");
-                            }
-                        });
-                    } catch (error) {
-                        alert(error);
-                        return;
+                            });
+                        } catch (error) {
+                            setIsLoading(false);
+                            alert(error);
+                            return;
+                        }
+                    } else {
+                        setIsLoading(false);
+                        alert("Please fill in all inputs.");
                     }
                 }}
             >
