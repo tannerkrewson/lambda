@@ -30,7 +30,13 @@ const LambdaSwitch = ({ label }) => (
     >
         <Label>{label}</Label>
         <Box>
-            <Switch />
+            <Switch
+                sx={{
+                    "input:checked ~ &": {
+                        backgroundColor: "accent",
+                    },
+                }}
+            />
         </Box>
     </Flex>
 );
