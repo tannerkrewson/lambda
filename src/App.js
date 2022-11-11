@@ -167,9 +167,55 @@ const MainForm = ({
         );
     });
 
+    const onError = (error) => {
+        setIsLoading(false);
+        alert(error);
+    };
+
+    const doSubmission = (submitType, formItems = []) => {
+        setIsSuccess(false);
+        setIsLoading(true);
+        try {
+            login(() => {
+                onSubmit(
+                    submitType,
+                    formItems,
+                    allSettings,
+                    () => {
+                        formRef.current.reset();
+                        setIsSuccess(true);
+                        setIsLoading(false);
+                    },
+                    onError
+                );
+            });
+        } catch (error) {
+            onError(error);
+        }
+    };
+
     return (
         <>
-            {isSuccess && <div>Success</div>}
+            {isSuccess && <div style={{ marginBottom: "1em" }}>Success</div>}
+
+            {!isLoading && (
+                <LambdaCenterBox>
+                    <Button
+                        variant="secondary"
+                        mr={5}
+                        onClick={() => doSubmission("start")}
+                    >
+                        Start
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => doSubmission("end")}
+                    >
+                        End
+                    </Button>
+                </LambdaCenterBox>
+            )}
+
             <form
                 className="Form"
                 autoComplete="off"
@@ -187,40 +233,23 @@ const MainForm = ({
                     inputs.pop();
 
                     let allInputsFilled = true;
+
                     const formItems = inputs.map(({ value, type, checked }) => {
                         if (type === "checkbox") return checked ? "yes" : "no";
-                        if (
-                            (type === "text" ||
-                                type === "textarea" ||
-                                type === "select-one") &&
-                            value === ""
-                        )
-                            allInputsFilled = false;
+                        // uncomment to force all inputs to be filled
+
+                        // if (
+                        //     (type === "text" ||
+                        //         type === "textarea" ||
+                        //         type === "select-one") &&
+                        //     value === ""
+                        // )
+                        //     allInputsFilled = false;
                         return value;
                     });
 
-                    const onError = (error) => {
-                        setIsLoading(false);
-                        alert(error);
-                    };
-
                     if (allInputsFilled) {
-                        try {
-                            login(() => {
-                                onSubmit(
-                                    formItems,
-                                    allSettings,
-                                    () => {
-                                        formRef.current.reset();
-                                        setIsSuccess(true);
-                                        setIsLoading(false);
-                                    },
-                                    onError
-                                );
-                            });
-                        } catch (error) {
-                            onError(error);
-                        }
+                        doSubmission("submission", formItems);
                     } else {
                         onError("Please fill in all inputs.");
                     }
@@ -284,10 +313,11 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (formItems, allSettings, done, onError) => {
+const onSubmit = (submitType, formItems, allSettings, done, onError) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
         appendRow(
             [
+                submitType,
                 ...getDateList(),
                 ...(await getWeather(
                     coords.latitude,
