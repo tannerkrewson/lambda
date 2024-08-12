@@ -1,118 +1,17 @@
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { Heading, Button, Input, Textarea, Label, Spinner } from "theme-ui";
-import useLocalStorage from "use-local-storage";
 
 import "./App.css";
 import { LambdaCenterBox, lambdaInputMap } from "./components";
-
-// Client ID and API key from the Developer Console
-const CLIENT_ID =
-    "456390951586-96qcaqi78249qdb4m89hac6ulu11ogbq.apps.googleusercontent.com";
-const API_KEY = "AIzaSyD8jd0tPMYX6sR3-oLbnFXlKpA8tbQB96s";
-
-// Array of API discovery doc URLs for APIs used by the quickstart
-const DISCOVERY_DOC =
-    "https://sheets.googleapis.com/$discovery/rest?version=v4";
-
-// Authorization scopes required by the API; multiple scopes can be
-// included, separated by spaces.
-const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
-
-const useSettings = () => {
-    const [SID, setSID] = useLocalStorage("SID", "");
-    const [OWAID, setOWAID] = useLocalStorage("OWAID", "");
-    const [savedSettings, saveSettings] = useLocalStorage("settings", "[]");
-
-    const [settings, setSettings] = useState(savedSettings);
-
-    return {
-        SID,
-        setSID: (e) => setSID(e.target.value),
-        settings,
-        setSettings: (e) => setSettings(e.target.value),
-        save: () => {
-            if (!settings.startsWith("["))
-                // eslint-disable-next-line no-throw-literal
-                throw "Settings must be an array";
-
-            saveSettings(settings);
-        },
-        getInputList: () => {
-            return Array.isArray(settings) ? settings : JSON.parse(settings);
-        },
-        OWAID,
-        setOWAID: (e) => setOWAID(e.target.value),
-    };
-};
+import useSettings from "./useSettings";
+import useNotion from "./useNotion";
 
 function App() {
     const [showSettings, setShowSettings] = useState(false);
-    const [gapiInited, setGapiInited] = useState(false);
-    const [gisInited, setGisInited] = useState(false);
-    const [tokenClient, setTokenClient] = useState();
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
     const allSettings = useSettings();
-
-    const gapiOnLoad = useCallback(() => {
-        window.gapi.load("client", async () => {
-            await window.gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC],
-            });
-            setGapiInited(true);
-        });
-    }, []);
-
-    const gisOnLoad = useCallback(() => {
-        setTokenClient(
-            window.google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: null, //set later
-            })
-        );
-        setGisInited(true);
-        setIsLoading(false);
-    }, []);
-
-    const login = useCallback(
-        (done) => {
-            if (gapiInited && gisInited) {
-                tokenClient.callback = (resp) => {
-                    if (resp.error !== undefined) {
-                        throw resp;
-                    } else {
-                        done();
-                    }
-                };
-                tokenClient.requestAccessToken({ prompt: "" });
-            } else {
-                // eslint-disable-next-line no-throw-literal
-                throw `gapi ready? ${gapiInited}. gis ready? ${gisInited}`;
-            }
-        },
-        [gapiInited, gisInited, tokenClient]
-    );
-
-    useEffect(() => {
-        if (window.gapiLoaded) gapiOnLoad();
-        if (window.gisLoaded) gisOnLoad();
-
-        document.getElementById("gapi").addEventListener("load", gapiOnLoad);
-        document.getElementById("gis").addEventListener("load", gisOnLoad);
-    }, [gapiOnLoad, gisOnLoad]);
-
-    // login on page load. commenting out because it still shows the prompt on submit.
-    // useEffect(() => {
-    //     if (gapiInited && gisInited && tokenClient) {
-    //         setIsLoading(true);
-    //         login(() => {
-    //             setIsLoading(false);
-    //         });
-    //     }
-    // }, [gapiInited, gisInited, login, tokenClient]);
 
     return (
         <div className="App">
@@ -140,7 +39,6 @@ function App() {
                     setIsLoading={setIsLoading}
                     isSuccess={isSuccess}
                     setIsSuccess={setIsSuccess}
-                    login={login}
                 />
             )}
         </div>
@@ -154,11 +52,12 @@ const MainForm = ({
     setIsLoading,
     isSuccess,
     setIsSuccess,
-    login,
 }) => {
     const { getInputList } = allSettings;
 
     const formRef = useRef(null);
+
+    const notionFuncs = useNotion(allSettings);
 
     const inputComponents = getInputList().map(({ label, type, options }) => {
         const LambdaInputComponent = lambdaInputMap[type];
@@ -176,19 +75,18 @@ const MainForm = ({
         setIsSuccess(false);
         setIsLoading(true);
         try {
-            login(() => {
-                onSubmit(
-                    submitType,
-                    formItems,
-                    allSettings,
-                    () => {
-                        formRef.current.reset();
-                        setIsSuccess(true);
-                        setIsLoading(false);
-                    },
-                    onError
-                );
-            });
+            onSubmit(
+                submitType,
+                formItems,
+                allSettings,
+                () => {
+                    formRef.current.reset();
+                    setIsSuccess(true);
+                    setIsLoading(false);
+                },
+                onError,
+                notionFuncs
+            );
         } catch (error) {
             onError(error);
         }
@@ -276,12 +174,27 @@ const MainForm = ({
 };
 
 const Settings = ({ setShowSettings, allSettings }) => {
-    const { SID, setSID, settings, setSettings, save, OWAID, setOWAID } =
-        allSettings;
+    const {
+        groupsDatabaseId,
+        setGroupsDatabaseId,
+        itemsDatabaseId,
+        setItemsDatabaseId,
+        notionApiKey,
+        setNotionApiKey,
+        OWAID,
+        setOWAID,
+        settings,
+        setSettings,
+        save,
+    } = allSettings;
     return (
         <div className="Form">
-            <Label>Spreadsheet</Label>
-            <Input value={SID} onChange={setSID} />
+            <Label>Group Database ID</Label>
+            <Input value={groupsDatabaseId} onChange={setGroupsDatabaseId} />
+            <Label>Items Database ID</Label>
+            <Input value={itemsDatabaseId} onChange={setItemsDatabaseId} />
+            <Label>Notion API Key</Label>
+            <Input value={notionApiKey} onChange={setNotionApiKey} />{" "}
             <Label>OpenWeather App ID</Label>
             <Input value={OWAID} onChange={setOWAID} />
             <Label>Input List</Label>
@@ -313,11 +226,17 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (submitType, formItems, allSettings, done, onError) => {
+const onSubmit = (
+    submitType,
+    formItems,
+    allSettings,
+    done,
+    onError,
+    notionFuncs
+) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
         appendRow(
             [
-                submitType,
                 ...getDateList(),
                 ...(await getWeather(
                     coords.latitude,
@@ -331,34 +250,28 @@ const onSubmit = (submitType, formItems, allSettings, done, onError) => {
             ],
             allSettings,
             done,
-            onError
+            onError,
+            submitType,
+            notionFuncs
         );
     });
 };
 
-const appendRow = (newRow, allSettings, done, onError) => {
-    window.gapi.client.sheets.spreadsheets.values
-        .append({
-            spreadsheetId: allSettings.SID,
-            range: "Raw",
-            valueInputOption: "USER_ENTERED",
-            resource: {
-                majorDimension: "ROWS",
-                values: [newRow],
-            },
-        })
-        .then(
-            () => {
-                done();
-            },
-            (reason) => {
-                try {
-                    onError("error: " + reason.result.error.message);
-                } catch (error) {
-                    onError(error);
-                }
-            }
-        );
+const appendRow = (
+    newRow,
+    allSettings,
+    done,
+    onError,
+    submitType,
+    notionFuncs
+) => {
+    notionFuncs[submitType]({}).then(done, (reason) => {
+        try {
+            onError("error: " + reason.result.error.message);
+        } catch (error) {
+            onError(error);
+        }
+    });
 };
 
 const getWeather = async (lat, lon, OWAID) => {
