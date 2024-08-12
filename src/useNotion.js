@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { Client } from "@notionhq/client";
 
-const useNotion = ({ groupsDatabaseId, itemsDatabaseId, notionApiKey }) => {
-    const notion = new Client({ auth: notionApiKey });
+const useNotion = ({
+    groupsDatabaseId,
+    itemsDatabaseId,
+    notionApiKey,
+    notionApiUrl,
+}) => {
+    const notion = new Client({ auth: notionApiKey, baseUrl: notionApiUrl });
     const [groupId, setGroupId] = useState(null);
 
     // 1. Start function

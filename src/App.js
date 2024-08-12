@@ -181,6 +181,8 @@ const Settings = ({ setShowSettings, allSettings }) => {
         setItemsDatabaseId,
         notionApiKey,
         setNotionApiKey,
+        notionApiUrl,
+        setNotionApiUrl,
         OWAID,
         setOWAID,
         settings,
@@ -194,7 +196,9 @@ const Settings = ({ setShowSettings, allSettings }) => {
             <Label>Items Database ID</Label>
             <Input value={itemsDatabaseId} onChange={setItemsDatabaseId} />
             <Label>Notion API Key</Label>
-            <Input value={notionApiKey} onChange={setNotionApiKey} />{" "}
+            <Input value={notionApiKey} onChange={setNotionApiKey} />
+            <Label>Notion API Url</Label>
+            <Input value={notionApiUrl} onChange={setNotionApiUrl} />
             <Label>OpenWeather App ID</Label>
             <Input value={OWAID} onChange={setOWAID} />
             <Label>Input List</Label>

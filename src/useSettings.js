@@ -11,6 +11,7 @@ const useSettings = () => {
         ""
     );
     const [notionApiKey, setNotionApiKey] = useLocalStorage("notionApiKey", "");
+    const [notionApiUrl, setNotionApiUrl] = useLocalStorage("notionApiUrl", "");
     const [OWAID, setOWAID] = useLocalStorage("OWAID", "");
     const [savedSettings, saveSettings] = useLocalStorage("settings", "[]");
 
@@ -23,6 +24,8 @@ const useSettings = () => {
         setItemsDatabaseId: (e) => setItemsDatabaseId(e.target.value),
         notionApiKey,
         setNotionApiKey: (e) => setNotionApiKey(e.target.value),
+        notionApiUrl,
+        setNotionApiUrl: (e) => setNotionApiUrl(e.target.value),
         OWAID,
         setOWAID: (e) => setOWAID(e.target.value),
         settings,
