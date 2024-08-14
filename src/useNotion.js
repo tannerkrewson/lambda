@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Client } from "@notionhq/client";
 
-const useNotion = ({
-    groupsDatabaseId,
-    itemsDatabaseId,
-    notionApiKey,
-    notionApiUrl,
-}) => {
+const useNotion = (
+    { groupsDatabaseId, itemsDatabaseId, notionApiKey, notionApiUrl },
+    onError
+) => {
     const notion = new Client({ auth: notionApiKey, baseUrl: notionApiUrl });
     const [groupId, setGroupId] = useState(null);
 
@@ -16,37 +14,29 @@ const useNotion = ({
             const response = await notion.pages.create({
                 parent: { database_id: groupsDatabaseId },
                 properties: {
-                    "Start Date": {
+                    Start: {
                         date: {
                             start: new Date().toISOString(),
                         },
-                    },
-                    Name: {
-                        title: [
-                            {
-                                text: {
-                                    content: "New Group",
-                                },
-                            },
-                        ],
                     },
                 },
             });
 
             setGroupId(response.id);
-            console.log("Group created:", response);
         } catch (error) {
-            console.error("Error creating group:", error);
+            onError(error.message);
         }
     };
 
     // 2. Submission function
     const submission = async (dynamicProperties) => {
+        console.log(dynamicProperties);
+
         try {
             const properties = {
                 ...dynamicProperties,
                 ...(groupId && {
-                    Group: {
+                    Push: {
                         relation: [{ id: groupId }],
                     },
                 }),
@@ -59,7 +49,7 @@ const useNotion = ({
 
             console.log("Item created:", response);
         } catch (error) {
-            console.error("Error creating item:", error);
+            onError(error.message);
         }
     };
 
@@ -74,7 +64,7 @@ const useNotion = ({
             const response = await notion.pages.update({
                 page_id: groupId,
                 properties: {
-                    "End Date": {
+                    End: {
                         date: {
                             start: new Date().toISOString(),
                         },
@@ -82,10 +72,9 @@ const useNotion = ({
                 },
             });
 
-            console.log("Group ended:", response);
             setGroupId(null); // Reset the group ID
         } catch (error) {
-            console.error("Error ending group:", error);
+            onError(error.message);
         }
     };
 

@@ -53,9 +53,7 @@ const MainForm = ({
     isSuccess,
     setIsSuccess,
 }) => {
-    const {
-        settings: { inputs },
-    } = allSettings;
+    const { settings } = allSettings || {};
 
     const formRef = useRef(null);
 
@@ -64,14 +62,20 @@ const MainForm = ({
         alert(error);
     };
 
-    const notionFuncs = useNotion(allSettings, onError);
+    const notionFuncs = useNotion(settings, onError);
 
-    const inputComponents = inputs?.map(({ label, type, options }) => {
-        const LambdaInputComponent = lambdaInputMap[type];
-        return (
-            <LambdaInputComponent key={label} label={label} options={options} />
-        );
-    });
+    const inputComponents = settings?.inputs?.map(
+        ({ label, type, options }) => {
+            const LambdaInputComponent = lambdaInputMap[type];
+            return (
+                <LambdaInputComponent
+                    key={label}
+                    label={label}
+                    options={options}
+                />
+            );
+        }
+    );
 
     const doSubmission = (submitType, formItems = []) => {
         setIsSuccess(false);
@@ -133,19 +137,32 @@ const MainForm = ({
 
                     let allInputsFilled = true;
 
-                    const formItems = inputs.map(({ value, type, checked }) => {
-                        if (type === "checkbox") return checked ? "yes" : "no";
-                        // uncomment to force all inputs to be filled
+                    const formItems = inputs.reduce(
+                        (prev, { value, type, checked }, i) => {
+                            const { label } = settings?.inputs[i];
 
-                        // if (
-                        //     (type === "text" ||
-                        //         type === "textarea" ||
-                        //         type === "select-one") &&
-                        //     value === ""
-                        // )
-                        //     allInputsFilled = false;
-                        return value;
-                    });
+                            const typeMap = {
+                                "select-one": "select",
+                                checkbox: "checkbox",
+                                text: "text",
+                            };
+                            const typeVal =
+                                type === "checkbox"
+                                    ? checked
+                                    : {
+                                          name: value,
+                                      };
+
+                            return {
+                                ...prev,
+                                [label]: {
+                                    type: typeMap[type],
+                                    [typeMap[type]]: typeVal,
+                                },
+                            };
+                        },
+                        {}
+                    );
 
                     if (allInputsFilled) {
                         doSubmission("submission", formItems);
@@ -208,42 +225,18 @@ const Settings = ({ setShowSettings, allSettings }) => {
 
 const onSubmit = (submitType, formItems, allSettings, done, notionFuncs) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-        notionFuncs[submitType]({}).then(done);
-        appendRow(
-            [
-                ...getDateList(),
-                ...(await getWeather(
-                    coords.latitude,
-                    coords.longitude,
-                    allSettings.OWAID
-                )),
+        notionFuncs[submitType]({
+            ...(await getWeather(
                 coords.latitude,
                 coords.longitude,
-                `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
-                ...formItems,
-            ],
-            allSettings,
-            done,
-            submitType,
-            notionFuncs
-        );
-    });
-};
-
-const appendRow = (
-    newRow,
-    allSettings,
-    done,
-    onError,
-    submitType,
-    notionFuncs
-) => {
-    notionFuncs[submitType]({}).then(done, (reason) => {
-        try {
-            onError("error: " + reason.result.error.message);
-        } catch (error) {
-            onError(error);
-        }
+                allSettings.settings.OWAID
+            )),
+            weekday: new Date().toLocaleString("default", {
+                weekday: "long",
+            }),
+            maps: `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
+            ...formItems,
+        }).then(done);
     });
 };
 
@@ -252,10 +245,10 @@ const getWeather = async (lat, lon, OWAID) => {
         const weather = await fetch(
             `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWAID}&units=imperial`
         ).then((res) => res.json());
-        return [
-            `${Math.round(weather.main.feels_like)}° F`,
-            getDarkOrLight(weather.sys),
-        ];
+        return {
+            temperature: `${Math.round(weather.main.feels_like)}° F`,
+            sun: getDarkOrLight(weather.sys),
+        };
     } catch (error) {
         alert("didn't record temp and daylight:" + error);
         return ["?", "?"];
@@ -268,20 +261,6 @@ const getDarkOrLight = ({ sunrise, sunset }) => {
     const isBeforeSunset = curTime <= sunset;
 
     return isAfterSunrise && isBeforeSunset ? "Light" : "Dark";
-};
-
-const getDateList = () => {
-    const now = new Date();
-
-    const monthDay = now.toLocaleString("default", {
-        month: "long",
-        day: "numeric",
-    });
-    const year = now.toLocaleString("default", { year: "numeric" });
-    const weekday = now.toLocaleString("default", { weekday: "long" });
-    const time = now.toLocaleTimeString("en-us", { hour12: true });
-
-    return [monthDay + " " + year, weekday, time];
 };
 
 export default App;
