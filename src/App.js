@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Heading, Button, Input, Textarea, Label, Spinner } from "theme-ui";
+import { Heading, Button, Textarea, Label, Spinner } from "theme-ui";
 
 import "./App.css";
 import { LambdaCenterBox, lambdaInputMap } from "./components";
@@ -53,23 +53,25 @@ const MainForm = ({
     isSuccess,
     setIsSuccess,
 }) => {
-    const { getInputList } = allSettings;
+    const {
+        settings: { inputs },
+    } = allSettings;
 
     const formRef = useRef(null);
-
-    const notionFuncs = useNotion(allSettings);
-
-    const inputComponents = getInputList().map(({ label, type, options }) => {
-        const LambdaInputComponent = lambdaInputMap[type];
-        return (
-            <LambdaInputComponent key={label} label={label} options={options} />
-        );
-    });
 
     const onError = (error) => {
         setIsLoading(false);
         alert(error);
     };
+
+    const notionFuncs = useNotion(allSettings, onError);
+
+    const inputComponents = inputs?.map(({ label, type, options }) => {
+        const LambdaInputComponent = lambdaInputMap[type];
+        return (
+            <LambdaInputComponent key={label} label={label} options={options} />
+        );
+    });
 
     const doSubmission = (submitType, formItems = []) => {
         setIsSuccess(false);
@@ -84,7 +86,6 @@ const MainForm = ({
                     setIsSuccess(true);
                     setIsLoading(false);
                 },
-                onError,
                 notionFuncs
             );
         } catch (error) {
@@ -174,36 +175,12 @@ const MainForm = ({
 };
 
 const Settings = ({ setShowSettings, allSettings }) => {
-    const {
-        groupsDatabaseId,
-        setGroupsDatabaseId,
-        itemsDatabaseId,
-        setItemsDatabaseId,
-        notionApiKey,
-        setNotionApiKey,
-        notionApiUrl,
-        setNotionApiUrl,
-        OWAID,
-        setOWAID,
-        settings,
-        setSettings,
-        save,
-    } = allSettings;
+    const { settingsString, setSettings } = allSettings;
     return (
         <div className="Form">
-            <Label>Group Database ID</Label>
-            <Input value={groupsDatabaseId} onChange={setGroupsDatabaseId} />
-            <Label>Items Database ID</Label>
-            <Input value={itemsDatabaseId} onChange={setItemsDatabaseId} />
-            <Label>Notion API Key</Label>
-            <Input value={notionApiKey} onChange={setNotionApiKey} />
-            <Label>Notion API Url</Label>
-            <Input value={notionApiUrl} onChange={setNotionApiUrl} />
-            <Label>OpenWeather App ID</Label>
-            <Input value={OWAID} onChange={setOWAID} />
-            <Label>Input List</Label>
+            <Label>Settings JSON</Label>
             <Textarea
-                value={settings}
+                value={settingsString}
                 onChange={setSettings}
                 autoComplete="off"
                 name="textarea"
@@ -216,7 +193,6 @@ const Settings = ({ setShowSettings, allSettings }) => {
                     variant="primary"
                     onClick={() => {
                         try {
-                            save();
                             setShowSettings(false);
                         } catch (error) {
                             alert(error);
@@ -230,15 +206,9 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (
-    submitType,
-    formItems,
-    allSettings,
-    done,
-    onError,
-    notionFuncs
-) => {
+const onSubmit = (submitType, formItems, allSettings, done, notionFuncs) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+        notionFuncs[submitType]({}).then(done);
         appendRow(
             [
                 ...getDateList(),
@@ -254,7 +224,6 @@ const onSubmit = (
             ],
             allSettings,
             done,
-            onError,
             submitType,
             notionFuncs
         );
