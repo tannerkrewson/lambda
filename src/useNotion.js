@@ -3,6 +3,7 @@ import { Client } from "@notionhq/client";
 
 const useNotion = (
     { groupsDatabaseId, itemsDatabaseId, notionApiKey, notionApiUrl },
+    onSuccess,
     onError
 ) => {
     const notion = new Client({ auth: notionApiKey, baseUrl: notionApiUrl });
@@ -23,6 +24,7 @@ const useNotion = (
             });
 
             setGroupId(response.id);
+            onSuccess();
         } catch (error) {
             onError(error.message);
         }
@@ -30,8 +32,6 @@ const useNotion = (
 
     // 2. Submission function
     const submission = async (dynamicProperties) => {
-        console.log(dynamicProperties);
-
         try {
             const properties = {
                 ...dynamicProperties,
@@ -42,12 +42,45 @@ const useNotion = (
                 }),
             };
 
+            // TODO: create setting that creates alternative title
+
+            properties.Name = {
+                id: "title",
+                type: "title",
+                title: [
+                    {
+                        type: "text",
+                        text: {
+                            content: properties.Name?.text?.name,
+                        },
+                    },
+                ],
+            };
+
+            const notes = properties.Notes;
+            delete properties.Notes;
+
             const response = await notion.pages.create({
                 parent: { database_id: itemsDatabaseId },
                 properties,
             });
 
-            console.log("Item created:", response);
+            if (notes) {
+                await notion.comments.create({
+                    parent: {
+                        page_id: response.id,
+                    },
+                    rich_text: [
+                        {
+                            text: {
+                                content: notes.text.name,
+                            },
+                        },
+                    ],
+                });
+            }
+
+            onSuccess();
         } catch (error) {
             onError(error.message);
         }
@@ -73,6 +106,7 @@ const useNotion = (
             });
 
             setGroupId(null); // Reset the group ID
+            onSuccess();
         } catch (error) {
             onError(error.message);
         }

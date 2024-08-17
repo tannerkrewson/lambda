@@ -57,12 +57,18 @@ const MainForm = ({
 
     const formRef = useRef(null);
 
+    const onSuccess = () => {
+        formRef.current.reset();
+        setIsSuccess(true);
+        setIsLoading(false);
+    };
+
     const onError = (error) => {
         setIsLoading(false);
         alert(error);
     };
 
-    const notionFuncs = useNotion(settings, onError);
+    const notionFuncs = useNotion(settings, onSuccess, onError);
 
     const inputComponents = settings?.inputs?.map(
         ({ label, type, options }) => {
@@ -81,17 +87,7 @@ const MainForm = ({
         setIsSuccess(false);
         setIsLoading(true);
         try {
-            onSubmit(
-                submitType,
-                formItems,
-                allSettings,
-                () => {
-                    formRef.current.reset();
-                    setIsSuccess(true);
-                    setIsLoading(false);
-                },
-                notionFuncs
-            );
+            onSubmit(submitType, formItems, allSettings, notionFuncs);
         } catch (error) {
             onError(error);
         }
@@ -139,12 +135,16 @@ const MainForm = ({
 
                     const formItems = inputs.reduce(
                         (prev, { value, type, checked }, i) => {
+                            // if an input is empty, don't include it
+                            if (!value) return prev;
+
                             const { label } = settings?.inputs[i];
 
                             const typeMap = {
                                 "select-one": "select",
                                 checkbox: "checkbox",
                                 text: "text",
+                                textarea: "text",
                             };
                             const typeVal =
                                 type === "checkbox"
@@ -156,7 +156,6 @@ const MainForm = ({
                             return {
                                 ...prev,
                                 [label]: {
-                                    type: typeMap[type],
                                     [typeMap[type]]: typeVal,
                                 },
                             };
@@ -223,20 +222,20 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (submitType, formItems, allSettings, done, notionFuncs) => {
+const onSubmit = (submitType, formItems, allSettings, notionFuncs) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
         notionFuncs[submitType]({
-            ...(await getWeather(
-                coords.latitude,
-                coords.longitude,
-                allSettings.settings.OWAID
-            )),
-            weekday: new Date().toLocaleString("default", {
-                weekday: "long",
-            }),
-            maps: `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
+            // ...(await getWeather(
+            //     coords.latitude,
+            //     coords.longitude,
+            //     allSettings.settings.OWAID
+            // )),
+            // weekday: new Date().toLocaleString("default", {
+            //     weekday: "long",
+            // }),
+            // maps: `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
             ...formItems,
-        }).then(done);
+        });
     });
 };
 
