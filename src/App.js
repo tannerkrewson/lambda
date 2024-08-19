@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Heading, Button, Textarea, Label, Spinner } from "theme-ui";
 
 import "./App.css";
@@ -45,6 +45,94 @@ function App() {
     );
 }
 
+const InputForm = ({
+    settingsInputs,
+    isLoading,
+    setIsLoading,
+    onSubmit,
+    onSuccess,
+    onError,
+}) => {
+    const formRef = useRef(null);
+    const inputComponents = useMemo(
+        () =>
+            settingsInputs.map(({ label, type, options }) => {
+                const LambdaInputComponent = lambdaInputMap[type];
+                return (
+                    <LambdaInputComponent
+                        key={label}
+                        label={label}
+                        options={options}
+                    />
+                );
+            }),
+        [settingsInputs]
+    );
+    return (
+        <form
+            className="Form"
+            autoComplete="off"
+            ref={formRef}
+            style={{ display: isLoading ? "none" : "block" }}
+            onSubmit={(event) => {
+                event.preventDefault();
+
+                setIsLoading(true);
+
+                const inputs = [...event.target.elements];
+
+                // remove the submit button
+                inputs.pop();
+
+                const formItems = inputs.reduce(
+                    (prev, { value, type, checked }, i) => {
+                        // if an input is empty, don't include it
+                        if (!value) return prev;
+
+                        const { label } = settingsInputs[i];
+
+                        const typeMap = {
+                            "select-one": "select",
+                            checkbox: "checkbox",
+                            text: "text",
+                            textarea: "text",
+                        };
+                        const typeVal =
+                            type === "checkbox"
+                                ? checked
+                                : {
+                                      name: value,
+                                  };
+
+                        return {
+                            ...prev,
+                            [label]: {
+                                [typeMap[type]]: typeVal,
+                            },
+                        };
+                    },
+                    {}
+                );
+
+                onSubmit(
+                    formItems,
+                    () => {
+                        formRef.current.reset();
+                        onSuccess();
+                    },
+                    onError
+                );
+            }}
+        >
+            {inputComponents}
+
+            <LambdaCenterBox>
+                <Button variant="primary">Submit</Button>
+            </LambdaCenterBox>
+        </form>
+    );
+};
+
 const MainForm = ({
     setShowSettings,
     allSettings,
@@ -55,10 +143,7 @@ const MainForm = ({
 }) => {
     const { settings } = allSettings || {};
 
-    const formRef = useRef(null);
-
     const onSuccess = () => {
-        formRef.current.reset();
         setIsSuccess(true);
         setIsLoading(false);
     };
@@ -68,26 +153,20 @@ const MainForm = ({
         alert(error);
     };
 
-    const notionFuncs = useNotion(settings, onSuccess, onError);
+    const notionFuncs = useNotion(settings);
 
-    const inputComponents = settings?.inputs?.map(
-        ({ label, type, options }) => {
-            const LambdaInputComponent = lambdaInputMap[type];
-            return (
-                <LambdaInputComponent
-                    key={label}
-                    label={label}
-                    options={options}
-                />
-            );
-        }
-    );
-
-    const doSubmission = (submitType, formItems = []) => {
+    const doSubmission = (submitType, formItems = [], s, e) => {
         setIsSuccess(false);
         setIsLoading(true);
         try {
-            onSubmit(submitType, formItems, allSettings, notionFuncs);
+            submitMainForm(
+                submitType,
+                formItems,
+                allSettings,
+                notionFuncs,
+                s,
+                e
+            );
         } catch (error) {
             onError(error);
         }
@@ -102,90 +181,44 @@ const MainForm = ({
                     <Button
                         variant="secondary"
                         mr={5}
-                        onClick={() => doSubmission("start")}
+                        onClick={() =>
+                            doSubmission("start", null, onSuccess, onError)
+                        }
                     >
                         Start
                     </Button>
                     <Button
                         variant="secondary"
-                        onClick={() => doSubmission("end")}
+                        onClick={() =>
+                            doSubmission("end", null, onSuccess, onError)
+                        }
                     >
                         End
                     </Button>
                 </LambdaCenterBox>
             )}
 
-            <form
-                className="Form"
-                autoComplete="off"
-                ref={formRef}
-                style={{ display: isLoading ? "none" : "block" }}
-                onSubmit={(event) => {
-                    event.preventDefault();
-
-                    setIsLoading(true);
-
-                    const inputs = [...event.target.elements];
-
-                    // remove the submit and settings buttons
-                    inputs.pop();
-                    inputs.pop();
-
-                    let allInputsFilled = true;
-
-                    const formItems = inputs.reduce(
-                        (prev, { value, type, checked }, i) => {
-                            // if an input is empty, don't include it
-                            if (!value) return prev;
-
-                            const { label } = settings?.inputs[i];
-
-                            const typeMap = {
-                                "select-one": "select",
-                                checkbox: "checkbox",
-                                text: "text",
-                                textarea: "text",
-                            };
-                            const typeVal =
-                                type === "checkbox"
-                                    ? checked
-                                    : {
-                                          name: value,
-                                      };
-
-                            return {
-                                ...prev,
-                                [label]: {
-                                    [typeMap[type]]: typeVal,
-                                },
-                            };
-                        },
-                        {}
-                    );
-
-                    if (allInputsFilled) {
-                        doSubmission("submission", formItems);
-                    } else {
-                        onError("Please fill in all inputs.");
-                    }
-                }}
-            >
-                {inputComponents}
-
-                <LambdaCenterBox>
-                    <Button
-                        variant="secondary"
-                        mr={5}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setShowSettings(true);
-                        }}
-                    >
-                        🛠
-                    </Button>
-                    <Button variant="primary">Submit</Button>
-                </LambdaCenterBox>
-            </form>
+            <InputForm
+                settingsInputs={settings?.inputs}
+                isLoading={isLoading}
+                setIsLoading={setIsLoading}
+                onSubmit={(f, s, e) => doSubmission("submission", f, s, e)}
+                onSuccess={onSuccess}
+                onError={onError}
+            />
+            <LambdaCenterBox>
+                <Button
+                    variant="secondary"
+                    mt={4}
+                    mb={3}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        setShowSettings(true);
+                    }}
+                >
+                    🛠
+                </Button>
+            </LambdaCenterBox>
         </>
     );
 };
@@ -222,20 +255,31 @@ const Settings = ({ setShowSettings, allSettings }) => {
     );
 };
 
-const onSubmit = (submitType, formItems, allSettings, notionFuncs) => {
+const submitMainForm = (
+    submitType,
+    formItems,
+    allSettings,
+    notionFuncs,
+    s,
+    e
+) => {
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-        notionFuncs[submitType]({
-            // ...(await getWeather(
-            //     coords.latitude,
-            //     coords.longitude,
-            //     allSettings.settings.OWAID
-            // )),
-            // weekday: new Date().toLocaleString("default", {
-            //     weekday: "long",
-            // }),
-            // maps: `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
-            ...formItems,
-        });
+        notionFuncs[submitType](
+            {
+                // ...(await getWeather(
+                //     coords.latitude,
+                //     coords.longitude,
+                //     allSettings.settings.OWAID
+                // )),
+                // weekday: new Date().toLocaleString("default", {
+                //     weekday: "long",
+                // }),
+                // maps: `http://maps.google.com/maps?q=${coords.latitude},${coords.longitude}`,
+                ...formItems,
+            },
+            s,
+            e
+        );
     });
 };
 
