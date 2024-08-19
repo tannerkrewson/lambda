@@ -1,16 +1,37 @@
 import { useState } from "react";
 import { Client } from "@notionhq/client";
 
-const useNotion = (
-    { groupsDatabaseId, itemsDatabaseId, notionApiKey, notionApiUrl },
-    onSuccess,
-    onError
-) => {
+const getDerivativeProps = (dynamicProperties, derivatives) => {
+    let res = {};
+    Object.keys(derivatives).forEach((dProp) => {
+        const thisProp = dynamicProperties[dProp];
+
+        if (!thisProp) return;
+        Object.keys(derivatives[dProp]).forEach((dPropVal) => {
+            const thisPropVal = thisProp?.select?.name;
+
+            if (!thisPropVal) return;
+            if (thisPropVal === dPropVal) {
+                res = { ...res, ...derivatives[dProp][dPropVal] };
+            }
+        });
+    });
+
+    return res;
+};
+
+const useNotion = ({
+    groupsDatabaseId,
+    itemsDatabaseId,
+    notionApiKey,
+    notionApiUrl,
+    derivatives,
+}) => {
     const notion = new Client({ auth: notionApiKey, baseUrl: notionApiUrl });
     const [groupId, setGroupId] = useState(null);
 
     // 1. Start function
-    const start = async () => {
+    const start = async (onSuccess, onError) => {
         try {
             const response = await notion.pages.create({
                 parent: { database_id: groupsDatabaseId },
@@ -31,18 +52,17 @@ const useNotion = (
     };
 
     // 2. Submission function
-    const submission = async (dynamicProperties) => {
+    const submission = async (dynamicProperties, onSuccess, onError) => {
         try {
             const properties = {
                 ...dynamicProperties,
+                ...getDerivativeProps(dynamicProperties, derivatives),
                 ...(groupId && {
                     Push: {
                         relation: [{ id: groupId }],
                     },
                 }),
             };
-
-            // TODO: create setting that creates alternative title
 
             properties.Name = {
                 id: "title",
@@ -51,7 +71,10 @@ const useNotion = (
                     {
                         type: "text",
                         text: {
-                            content: properties.Name?.text?.name,
+                            content:
+                                properties?.Name?.text?.name ||
+                                properties?.Rating?.select?.name ||
+                                "",
                         },
                     },
                 ],
@@ -87,9 +110,9 @@ const useNotion = (
     };
 
     // 3. End function
-    const end = async () => {
+    const end = async (onSuccess, onError) => {
         if (!groupId) {
-            console.error("No group started.");
+            alert("No group started.");
             return;
         }
 
