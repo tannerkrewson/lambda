@@ -46,7 +46,7 @@ function App() {
 }
 
 const InputForm = ({
-    settingsInputs,
+    settingsInputs = [],
     isLoading,
     setIsLoading,
     onSubmit,
@@ -91,11 +91,24 @@ const InputForm = ({
 
                         const { label } = settingsInputs[i];
 
+                        if (type === "text" || type === "textarea") {
+                            return {
+                                ...prev,
+                                [label]: {
+                                    rich_text: [
+                                        {
+                                            text: {
+                                                content: value,
+                                            },
+                                        },
+                                    ],
+                                },
+                            };
+                        }
+
                         const typeMap = {
                             "select-one": "select",
                             checkbox: "checkbox",
-                            text: "text",
-                            textarea: "text",
                         };
                         const typeVal =
                             type === "checkbox"
@@ -153,7 +166,7 @@ const MainForm = ({
         alert(error);
     };
 
-    const notionFuncs = useNotion(settings);
+    const { notionFuncs, groupStarted, groupItems } = useNotion(settings);
 
     const doSubmission = (submitType, formItems = [], s, e) => {
         setIsSuccess(false);
@@ -172,21 +185,40 @@ const MainForm = ({
         }
     };
 
+    const submitStart = (formItems = []) => {
+        setIsSuccess(false);
+        setIsLoading(true);
+        try {
+            submitMainForm(
+                "start",
+                formItems,
+                allSettings,
+                notionFuncs,
+                onSuccess,
+                onError
+            );
+        } catch (error) {
+            onError(error);
+        }
+    };
+
     return (
         <>
             {isSuccess && <div style={{ marginBottom: "1em" }}>Success</div>}
 
+            {!groupStarted && (
+                <InputForm
+                    settingsInputs={settings?.groupInputs}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                    onSubmit={submitStart}
+                    onSuccess={onSuccess}
+                    onError={onError}
+                />
+            )}
+
             {!isLoading && (
                 <LambdaCenterBox>
-                    <Button
-                        variant="secondary"
-                        mr={5}
-                        onClick={() =>
-                            doSubmission("start", null, onSuccess, onError)
-                        }
-                    >
-                        Start
-                    </Button>
                     <Button
                         variant="secondary"
                         onClick={() =>

@@ -20,31 +20,77 @@ const getDerivativeProps = (dynamicProperties, derivatives) => {
     return res;
 };
 
+const getNextPageTitle = async (notion, databaseId, groupName) => {
+    try {
+        const response = await notion.databases.query({
+            database_id: databaseId,
+            sorts: [
+                {
+                    property: "Start",
+                    direction: "descending",
+                },
+            ],
+            page_size: 1,
+        });
+
+        if (response.results.length === 0) return `${groupName} 1`;
+
+        const lastName =
+            response.results[0].properties.Name.title[0].plain_text;
+        return `${groupName} ${parseInt(lastName.split(" ")[1]) + 1}`;
+    } catch (error) {
+        return `${groupName} ?`;
+    }
+};
+
 const useNotion = ({
     groupsDatabaseId,
     itemsDatabaseId,
+    groupName,
     notionApiKey,
     notionApiUrl,
     derivatives,
 }) => {
     const notion = new Client({ auth: notionApiKey, baseUrl: notionApiUrl });
     const [groupId, setGroupId] = useState(null);
+    const [groupItems, setGroupItems] = useState(null);
 
     // 1. Start function
-    const start = async (onSuccess, onError) => {
+    const start = async (dynamicProperties, onSuccess, onError) => {
         try {
-            const response = await notion.pages.create({
-                parent: { database_id: groupsDatabaseId },
-                properties: {
-                    Start: {
-                        date: {
-                            start: new Date().toISOString(),
-                        },
+            const title = await getNextPageTitle(
+                notion,
+                groupsDatabaseId,
+                groupName
+            );
+            const properties = {
+                ...dynamicProperties,
+                Start: {
+                    date: {
+                        start: new Date().toISOString(),
                     },
                 },
+                Name: {
+                    id: "title",
+                    type: "title",
+                    title: [
+                        {
+                            type: "text",
+                            text: {
+                                content: title,
+                            },
+                        },
+                    ],
+                },
+            };
+
+            const response = await notion.pages.create({
+                parent: { database_id: groupsDatabaseId },
+                properties,
             });
 
             setGroupId(response.id);
+            setGroupItems(dynamicProperties);
             onSuccess();
         } catch (error) {
             onError(error.message);
@@ -72,7 +118,7 @@ const useNotion = ({
                         type: "text",
                         text: {
                             content:
-                                properties?.Name?.text?.name ||
+                                properties?.Name[0]?.text?.content ||
                                 properties?.Rating?.select?.name ||
                                 "",
                         },
@@ -110,7 +156,7 @@ const useNotion = ({
     };
 
     // 3. End function
-    const end = async (onSuccess, onError) => {
+    const end = async (dynamicProperties, onSuccess, onError) => {
         if (!groupId) {
             alert("No group started.");
             return;
@@ -129,6 +175,7 @@ const useNotion = ({
             });
 
             setGroupId(null); // Reset the group ID
+            setGroupItems(null);
             onSuccess();
         } catch (error) {
             onError(error.message);
@@ -136,9 +183,13 @@ const useNotion = ({
     };
 
     return {
-        start,
-        submission,
-        end,
+        groupStarted: !!groupId,
+        groupItems,
+        notionFuncs: {
+            start,
+            submission,
+            end,
+        },
     };
 };
 
