@@ -52,6 +52,7 @@ const InputForm = ({
     onSubmit,
     onSuccess,
     onError,
+    submitLabel = "Submit",
 }) => {
     const formRef = useRef(null);
     const inputComponents = useMemo(
@@ -140,13 +141,14 @@ const InputForm = ({
             {inputComponents}
 
             <LambdaCenterBox>
-                <Button variant="primary">Submit</Button>
+                <Button variant="primary">{submitLabel}</Button>
             </LambdaCenterBox>
         </form>
     );
 };
 
 const GroupItems = ({ data }) => {
+    if (!data) return;
     const renderContent = (value) => {
         if (value.rich_text) {
             return value.rich_text.map((item, index) => (
@@ -188,6 +190,7 @@ const MainForm = ({
     const onError = (error) => {
         setIsLoading(false);
         alert(error);
+        console.error(error);
     };
 
     const { notionFuncs, groupStarted, groupItems } = useNotion(settings);
@@ -230,31 +233,36 @@ const MainForm = ({
         <>
             {isSuccess && <div style={{ marginBottom: "1em" }}>Success</div>}
 
-            {groupStarted ? (
-                <GroupItems data={groupItems} />
-            ) : (
-                <InputForm
-                    settingsInputs={settings?.groupInputs}
-                    isLoading={isLoading}
-                    setIsLoading={setIsLoading}
-                    onSubmit={submitStart}
-                    onSuccess={onSuccess}
-                    onError={onError}
-                />
-            )}
-
-            {!isLoading && (
-                <LambdaCenterBox>
-                    <Button
-                        variant="secondary"
-                        onClick={() =>
-                            doSubmission("end", null, onSuccess, onError)
-                        }
-                    >
-                        End
-                    </Button>
-                </LambdaCenterBox>
-            )}
+            {!isLoading &&
+                (groupStarted ? (
+                    <>
+                        <GroupItems data={groupItems} />
+                        <LambdaCenterBox>
+                            <Button
+                                onClick={() =>
+                                    doSubmission(
+                                        "end",
+                                        null,
+                                        onSuccess,
+                                        onError
+                                    )
+                                }
+                            >
+                                End
+                            </Button>
+                        </LambdaCenterBox>
+                    </>
+                ) : (
+                    <InputForm
+                        settingsInputs={settings?.groupInputs}
+                        isLoading={isLoading}
+                        setIsLoading={setIsLoading}
+                        onSubmit={submitStart}
+                        onSuccess={onSuccess}
+                        onError={onError}
+                        submitLabel="Start"
+                    />
+                ))}
 
             <InputForm
                 settingsInputs={settings?.inputs}
@@ -264,19 +272,21 @@ const MainForm = ({
                 onSuccess={onSuccess}
                 onError={onError}
             />
-            <LambdaCenterBox>
-                <Button
-                    variant="secondary"
-                    mt={4}
-                    mb={3}
-                    onClick={(e) => {
-                        e.preventDefault();
-                        setShowSettings(true);
-                    }}
-                >
-                    🛠
-                </Button>
-            </LambdaCenterBox>
+            {!isLoading && (
+                <LambdaCenterBox>
+                    <Button
+                        variant="secondary"
+                        mt={4}
+                        mb={3}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setShowSettings(true);
+                        }}
+                    >
+                        🛠
+                    </Button>
+                </LambdaCenterBox>
+            )}
         </>
     );
 };
@@ -298,13 +308,7 @@ const Settings = ({ setShowSettings, allSettings }) => {
             <LambdaCenterBox>
                 <Button
                     variant="primary"
-                    onClick={() => {
-                        try {
-                            setShowSettings(false);
-                        } catch (error) {
-                            alert(error);
-                        }
-                    }}
+                    onClick={() => setShowSettings(false)}
                 >
                     Save
                 </Button>

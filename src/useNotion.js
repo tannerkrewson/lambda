@@ -26,7 +26,7 @@ const getNextPageTitle = async (notion, databaseId, groupName) => {
             database_id: databaseId,
             sorts: [
                 {
-                    property: "Start",
+                    property: "Date",
                     direction: "descending",
                 },
             ],
@@ -37,8 +37,13 @@ const getNextPageTitle = async (notion, databaseId, groupName) => {
 
         const lastName =
             response.results[0].properties.Name.title[0].plain_text;
-        return `${groupName} ${parseInt(lastName.split(" ")[1]) + 1}`;
+        const groupNumber = parseInt(lastName.split(" ")[1]) + 1;
+
+        if (isNaN(groupNumber)) throw new Error(`Group number ${groupNumber}`);
+
+        return `${groupName} ${groupNumber}`;
     } catch (error) {
+        console.error(error);
         return `${groupName} ?`;
     }
 };
@@ -53,6 +58,7 @@ const useNotion = ({
 }) => {
     const notion = new Client({ auth: notionApiKey, baseUrl: notionApiUrl });
     const [groupId, setGroupId] = useState(null);
+    const [startDate, setStartDate] = useState(null);
     const [groupItems, setGroupItems] = useState(null);
 
     // 1. Start function
@@ -63,11 +69,15 @@ const useNotion = ({
                 groupsDatabaseId,
                 groupName
             );
+
+            const newStartDate = new Date().toISOString();
+            setStartDate(newStartDate);
+
             const properties = {
                 ...dynamicProperties,
-                Start: {
+                Date: {
                     date: {
-                        start: new Date().toISOString(),
+                        start: newStartDate,
                     },
                 },
                 Name: {
@@ -108,22 +118,22 @@ const useNotion = ({
                         relation: [{ id: groupId }],
                     },
                 }),
-            };
-
-            properties.Name = {
-                id: "title",
-                type: "title",
-                title: [
-                    {
-                        type: "text",
-                        text: {
-                            content:
-                                properties?.Name[0]?.text?.content ||
-                                properties?.Rating?.select?.name ||
-                                "",
+                Name: {
+                    id: "title",
+                    type: "title",
+                    title: [
+                        {
+                            type: "text",
+                            text: {
+                                content:
+                                    dynamicProperties?.Name?.rich_text[0]?.text
+                                        ?.content ||
+                                    dynamicProperties?.Rating?.select?.name ||
+                                    "",
+                            },
                         },
-                    },
-                ],
+                    ],
+                },
             };
 
             const notes = properties.Notes;
@@ -139,13 +149,7 @@ const useNotion = ({
                     parent: {
                         page_id: response.id,
                     },
-                    rich_text: [
-                        {
-                            text: {
-                                content: notes.text.name,
-                            },
-                        },
-                    ],
+                    ...notes,
                 });
             }
 
@@ -158,23 +162,25 @@ const useNotion = ({
     // 3. End function
     const end = async (dynamicProperties, onSuccess, onError) => {
         if (!groupId) {
-            alert("No group started.");
+            onError("No group started.");
             return;
         }
 
         try {
-            const response = await notion.pages.update({
+            await notion.pages.update({
                 page_id: groupId,
                 properties: {
-                    End: {
+                    Date: {
                         date: {
-                            start: new Date().toISOString(),
+                            start: startDate,
+                            end: new Date().toISOString(),
                         },
                     },
                 },
             });
 
-            setGroupId(null); // Reset the group ID
+            setGroupId(null);
+            setStartDate(null);
             setGroupItems(null);
             onSuccess();
         } catch (error) {
