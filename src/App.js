@@ -146,6 +146,30 @@ const InputForm = ({
     );
 };
 
+const GroupItems = ({ data }) => {
+    const renderContent = (value) => {
+        if (value.rich_text) {
+            return value.rich_text.map((item, index) => (
+                <span key={index}>{item.text.content}</span>
+            ));
+        } else if (value.select) {
+            return <span>{value.select.name}</span>;
+        }
+        return null;
+    };
+
+    return (
+        <div style={{ marginBottom: ".5em" }}>
+            {Object.entries(data).map(([key, value], index) => (
+                <div key={index} style={{ marginBottom: ".5em" }}>
+                    <span style={{ fontWeight: "bold" }}>{key}</span>:{" "}
+                    {renderContent(value)}
+                </div>
+            ))}
+        </div>
+    );
+};
+
 const MainForm = ({
     setShowSettings,
     allSettings,
@@ -206,7 +230,9 @@ const MainForm = ({
         <>
             {isSuccess && <div style={{ marginBottom: "1em" }}>Success</div>}
 
-            {!groupStarted && (
+            {groupStarted ? (
+                <GroupItems data={groupItems} />
+            ) : (
                 <InputForm
                     settingsInputs={settings?.groupInputs}
                     isLoading={isLoading}
